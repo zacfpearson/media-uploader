@@ -1,0 +1,11 @@
+FROM ubuntu:focal
+
+COPY frontend/static /uploader/web/static
+COPY frontend/index.html /uploader/web/index.html
+COPY frontend/pkg /uploader/web/pkg
+COPY backend/target/debug/media-uploader /uploader/media-uploader
+WORKDIR /uploader
+
+ENV RUST_LOG=warp
+
+ENTRYPOINT [ "./media-uploader" ]
