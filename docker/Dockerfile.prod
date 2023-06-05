@@ -26,4 +26,6 @@ COPY --from=builder /build/backend/target/x86_64-unknown-linux-musl/release/medi
 
 ENV RUST_LOG=warp
 
+RUN apk update && apk add openssl-dev
+
 ENTRYPOINT [ "./media-uploader" ]
