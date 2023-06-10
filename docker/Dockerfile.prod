@@ -1,11 +1,11 @@
-FROM alpine as builder
+FROM ubuntu:focal as builder
 
 COPY . /build
 WORKDIR /build
 ENV PATH="/root/.cargo/bin:${PATH}"
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apk update && apk add curl g++ gcc make openssl-dev pkgconfig && \
+RUN apt-get -y update && apt-get -y install curl build-essential libssl-dev pkg-config musl-tools && \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
     rustup target add x86_64-unknown-linux-musl && \
     rustup target add wasm32-unknown-unknown && \
@@ -25,7 +25,5 @@ COPY --from=builder /build/frontend/pkg /uploader/web/pkg
 COPY --from=builder /build/backend/target/x86_64-unknown-linux-musl/release/media-uploader /uploader/media-uploader
 
 ENV RUST_LOG=warp
-
-RUN apk update && apk add openssl-dev
 
 ENTRYPOINT [ "./media-uploader" ]
