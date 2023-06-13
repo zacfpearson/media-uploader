@@ -58,7 +58,7 @@ async fn main() {
     let media = warp::path("uploader");
     let media_routes = media
         .and(warp::post())
-        .and(warp::multipart::form().max_length(50_000_000))
+        .and(warp::multipart::form().max_length(300_000_000))
         .and(bucket.clone())
         .and_then(uploadupload_handler)
         .or(
