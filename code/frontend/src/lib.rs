@@ -51,6 +51,34 @@ fn send_file(document: &Document) {
     });
 }
 
+fn send_delete(document: &Document) {
+    let filename_to_delete = document
+        .get_element_by_id("delete-name")
+        .expect("should have delete-name on the page")
+        .dyn_ref::<HtmlInputElement>()
+        .expect("delete-name should be an HtmlInputElement")
+        .value();
+
+    wasm_bindgen_futures::spawn_local(async move {
+        let mut opts = RequestInit::new();
+        opts.method("POST");
+        opts.mode(RequestMode::Cors);
+
+        let url = format!("../api/media/v1/deleter/{}",filename_to_delete);
+
+        if let Ok( request ) = Request::new_with_str_and_init(&url, &opts) {
+            if let Ok(_) = request.headers().set("Accept", "application/octet-stream"){
+
+
+                let window = web_sys::window().unwrap();
+                if let Ok( resp_value ) = JsFuture::from(window.fetch_with_request(&request)).await {
+                    console_log!("Response From Upload: {:?}",resp_value);
+                }
+            }
+        }
+    });
+}
+
 fn setup() {
 
     let window = web_sys::window().expect("no global window exists"); 
@@ -73,7 +101,25 @@ fn setup() {
         .expect("upload should be HtmlElement")
         .set_onclick(Some(handle_upload.as_ref().unchecked_ref()));
 
+    //setup uplaod button
+    let handle_delete = Closure::<dyn Fn()>::new(
+        move || {
+            let window = web_sys::window().expect("no global window exists");
+            let document = window.document().expect("should have a document window");
+
+            send_delete(&document);
+        },
+    );
+
+    document
+        .get_element_by_id("delete")
+        .expect("should have delete on the page")
+        .dyn_ref::<HtmlElement>()
+        .expect("upload should be HtmlElement")
+        .set_onclick(Some(handle_delete.as_ref().unchecked_ref()));
+
     handle_upload.forget();
+    handle_delete.forget();
 }
 
 #[wasm_bindgen(start)]

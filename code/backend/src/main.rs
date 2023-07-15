@@ -6,10 +6,9 @@ use futures_util::{StreamExt, TryStreamExt};
 use std::env;
 use warp::{multipart::FormData, Filter, Rejection, Reply};
 
-type Result<T> = std::result::Result<T, Rejection>;
-use mongodb::{gridfs::GridFsBucket, Client};
+use mongodb::{bson::doc, gridfs::{GridFsBucket, FilesCollectionDocument}, Client};
 
-async fn uploadupload_handler(mut fd: FormData, bucket: GridFsBucket) -> Result<impl Reply> {
+async fn uploadupload_handler(mut fd: FormData, bucket: GridFsBucket) -> std::result::Result<impl Reply, Rejection> {
     while let Some(possible_part) = fd.next().await {
         match possible_part {
             Ok(part) => {
@@ -42,6 +41,36 @@ async fn uploadupload_handler(mut fd: FormData, bucket: GridFsBucket) -> Result<
     }
     Ok("saved data")
 }
+
+async fn delete_handler(filename: String, bucket: GridFsBucket) -> std::result::Result<impl Reply, Rejection> {
+    println!("got file: {}", filename);
+    let filter = doc!{"filename": filename.clone()};
+    println!("finding file");
+    match bucket.find(filter, None).await {
+        Ok(cursor) => {
+            println!("found file");
+            let file_collections: Result<Vec<FilesCollectionDocument>,_> = cursor.try_collect().await;
+            match file_collections {
+                Ok(metas) => {
+                    let id = metas[0].id.clone();
+        
+                bucket
+                    .delete(id)
+                    .await
+                    .expect("should be able to delete data from bucket");
+                },
+                Err(_) => {
+                    warp::reject::reject(); //todo: different error
+                }
+            }
+        },
+        Err(_) => {
+            warp::reject::reject(); //todo: different error
+        }
+    }
+    Ok("deleted data")
+}
+
 #[tokio::main]    
 async fn main() {
     pretty_env_logger::init();
@@ -56,6 +85,7 @@ async fn main() {
     let bucket = warp::any().map(move || bucket.clone());
 
     let media = warp::path("uploader");
+    let delete_media = warp::path("deleter");
     let media_routes = media
         .and(warp::post())
         .and(warp::multipart::form().max_length(300_000_000))
@@ -63,6 +93,16 @@ async fn main() {
         .and_then(uploadupload_handler)
         .or(
             media.and(warp::options().map(warp::reply))
+        )
+        .or(
+            delete_media
+            .and(warp::post())
+            .and(warp::path::param())
+            .and(bucket.clone())
+            .and_then(delete_handler)
+        )
+        .or(
+            delete_media.and(warp::options().map(warp::reply))
         );
 
     let web = warp::path("web").and(warp::fs::dir("web"));
